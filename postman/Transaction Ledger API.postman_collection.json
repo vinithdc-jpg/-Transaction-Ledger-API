@@ -1,0 +1,644 @@
+{
+  "info": {
+    "name": "Transaction Ledger API",
+    "description": "Ordered endpoint and validation smoke tests. Run against a disposable database; the API intentionally has no delete endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/health"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('database is reachable', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().success).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create source account",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"Postman source account\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/accounts"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('source account is created at zero balance', function () {",
+              "  pm.response.to.have.status(201);",
+              "  const data = pm.response.json().data;",
+              "  pm.expect(data.id).to.be.a('string');",
+              "  pm.expect(Number(data.balance)).to.eql(0);",
+              "  pm.collectionVariables.set('accountId', data.id);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Create destination account",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"Postman destination account\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/accounts"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('destination account is created', function () {",
+              "  pm.response.to.have.status(201);",
+              "  pm.collectionVariables.set('destinationAccountId', pm.response.json().data.id);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject blank account name",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"  \"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/accounts"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('blank name is rejected', function () {",
+              "  pm.response.to.have.status(400);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read initial balance",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/accounts/{{accountId}}/balance"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('new account balance is zero', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(Number(pm.response.json().data.balance)).to.eql(0);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Credit source account",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('creditReference', pm.variables.replaceIn('{{$guid}}'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('credit succeeds', function () {",
+              "  pm.response.to.have.status(201);",
+              "  pm.expect(pm.response.json().data.type).to.eql('credit');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"type\":\"credit\",\"amount\":\"100.00\",\"reference_id\":\"{{creditReference}}\",\"description\":\"Postman test credit\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/accounts/{{accountId}}/transactions"
+      }
+    },
+    {
+      "name": "Reject duplicate credit reference",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"type\":\"credit\",\"amount\":\"100.00\",\"reference_id\":\"{{creditReference}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/accounts/{{accountId}}/transactions"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('duplicate reference conflicts', function () {",
+              "  pm.response.to.have.status(409);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject invalid transaction amount",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"type\":\"debit\",\"amount\":\"0\",\"reference_id\":\"invalid-amount-{{$guid}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/accounts/{{accountId}}/transactions"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('zero amount is rejected', function () {",
+              "  pm.response.to.have.status(400);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Debit source account",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"type\":\"debit\",\"amount\":\"40.00\",\"reference_id\":\"debit-{{$guid}}\",\"description\":\"Postman test debit\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/accounts/{{accountId}}/transactions"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('debit succeeds', function () {",
+              "  pm.response.to.have.status(201);",
+              "  pm.expect(pm.response.json().data.type).to.eql('debit');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject insufficient debit",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"type\":\"debit\",\"amount\":\"10000\",\"reference_id\":\"insufficient-{{$guid}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/accounts/{{accountId}}/transactions"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('insufficient debit returns unprocessable entity', function () {",
+              "  pm.response.to.have.status(422);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Read newest transaction history",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/accounts/{{accountId}}/transactions?page=1&limit=20"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('history has valid pagination', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const data = pm.response.json().data;",
+              "  pm.expect(data.total).to.be.at.least(2);",
+              "  const timestamps = data.transactions.map(function (item) { return Date.parse(item.createdAt); });",
+              "  pm.expect(timestamps[0]).to.be.at.least(timestamps[1]);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Filter credit history",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/accounts/{{accountId}}/transactions?type=credit"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('credit filter returns only credits', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().data.transactions.every(function (item) { return item.type === 'credit'; })).to.eql(true);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject invalid pagination",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/accounts/{{accountId}}/transactions?page=0&limit=101"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('invalid pagination is rejected', function () {",
+              "  pm.response.to.have.status(400);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transfer funds",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('transferReference', pm.variables.replaceIn('{{$guid}}'));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('transfer succeeds atomically', function () {",
+              "  pm.response.to.have.status(201);",
+              "  const data = pm.response.json().data;",
+              "  pm.expect(data.source.balanceAfter).to.eql('40.00');",
+              "  pm.expect(data.destination.balanceAfter).to.eql('20.00');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"source_account_id\":\"{{accountId}}\",\"destination_account_id\":\"{{destinationAccountId}}\",\"amount\":\"20.00\",\"reference_id\":\"{{transferReference}}\",\"description\":\"Postman test transfer\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/transfers"
+      }
+    },
+    {
+      "name": "Reject duplicate transfer reference",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"source_account_id\":\"{{accountId}}\",\"destination_account_id\":\"{{destinationAccountId}}\",\"amount\":\"20.00\",\"reference_id\":\"{{transferReference}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/transfers"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('duplicate transfer conflicts', function () {",
+              "  pm.response.to.have.status(409);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject insufficient transfer",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"source_account_id\":\"{{accountId}}\",\"destination_account_id\":\"{{destinationAccountId}}\",\"amount\":\"10000\",\"reference_id\":\"transfer-insufficient-{{$guid}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/transfers"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('insufficient transfer is rejected', function () {",
+              "  pm.response.to.have.status(422);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject same-account transfer",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"source_account_id\":\"{{accountId}}\",\"destination_account_id\":\"{{accountId}}\",\"amount\":\"1\",\"reference_id\":\"same-account-{{$guid}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/transfers"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('same-account transfer is rejected', function () {",
+              "  pm.response.to.have.status(400);",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reject invalid transfer amount",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"source_account_id\":\"{{accountId}}\",\"destination_account_id\":\"{{destinationAccountId}}\",\"amount\":\"0\",\"reference_id\":\"invalid-transfer-amount-{{$guid}}\"}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": "{{baseUrl}}/api/transfers"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('zero transfer amount returns 400', function () {",
+              "  pm.response.to.have.status(400);",
+              "  const response = pm.response.json();",
+              "  pm.expect(response.success).to.eql(false);",
+              "  pm.expect(response.message).to.include('positive amount');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Return 404 for missing account",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/accounts/not-a-real-account/balance"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('missing account returns not found', function () {",
+              "  pm.response.to.have.status(404);",
+              "});"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "accountId",
+      "value": ""
+    },
+    {
+      "key": "destinationAccountId",
+      "value": ""
+    },
+    {
+      "key": "creditReference",
+      "value": ""
+    },
+    {
+      "key": "transferReference",
+      "value": ""
+    }
+  ]
+}
