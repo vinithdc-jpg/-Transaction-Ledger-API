@@ -2,13 +2,15 @@
 
 A Node.js, Express, TypeScript, and Supabase-hosted PostgreSQL API for accounts, immutable credit/debit entries, transaction history, and atomic transfers.
 
+For the complete project overview, setup instructions, and submission documentation, see the [project README](../README.md).
+
 ## Requirements
 
 - Node.js 18 or newer
 - A Supabase project with PostgreSQL enabled
-- The `accounts` and `transactions` tables in the configured database
+- The `accounts`, `transactions`, `staff`, and `staff_invites` tables in the configured database
 
-The application does not automatically run DDL at startup. The existing database already contains the required ledger tables, so it was inspected without modification. [`sql/schema.sql`](./sql/schema.sql) is a bootstrap schema for a new, empty database; it is not a migration for existing tables.
+The application does not automatically run DDL at startup. [`sql/schema.sql`](./sql/schema.sql) creates the staff and invitation tables and indexes; existing databases should rerun it to add these objects without changing the ledger tables.
 
 ## Setup
 
@@ -19,9 +21,15 @@ npm install
 if (-not (Test-Path .env)) { Copy-Item .env.example .env }
 ```
 
-Set `DATABASE_URL` in `.env` to the Supabase **Session pooler** connection string from the project’s **Connect** dialog. The session pooler uses port `5432`; its username includes the project reference (for example, `postgres.<project-ref>`). Replace the password placeholder, and URL-encode any reserved characters in the password. The backend requires encrypted TLS connections; the Supabase pooler certificate chain is not verified by this client. `PORT` defaults to `3000`. Do not replace an existing `.env` with the example file, and never commit `.env` or share its connection string.
+Set `DATABASE_URL` in `.env` to the Supabase **Session pooler** connection string from the project’s **Connect** dialog. The session pooler uses port `5432`; its username includes the project reference (for example, `postgres.<project-ref>`). Replace the password placeholder, and URL-encode any reserved characters in the password. Set `JWT_SECRET` to a cryptographically random value of at least 32 characters, `ADMIN_EMAIL` to `Admin@gmail.com`, and `ADMIN_PASSWORD_HASH` to the bcrypt hash of the admin password `Admin@123`. Generate a hash locally with:
 
-For a new Supabase project, run [`sql/schema.sql`](./sql/schema.sql) once in the Supabase SQL Editor to create the ledger tables. The API does not create or migrate tables automatically.
+```powershell
+node -e "require('bcrypt').hash('Admin@123', 12).then(console.log)"
+```
+
+Put only the resulting bcrypt hash in `ADMIN_PASSWORD_HASH`, not the password. The backend requires encrypted TLS connections; the Supabase pooler certificate chain is not verified by this client. `PORT` defaults to `3000`. If the frontend is hosted on another origin, set `FRONTEND_ORIGIN` to its exact origin (or a comma-separated allowlist); production cookies require HTTPS. Do not replace an existing `.env` with the example file, and never commit `.env` or share its connection string or secrets.
+
+For a new Supabase project, run [`sql/schema.sql`](./sql/schema.sql) once in the Supabase SQL Editor to create the ledger, staff, and staff invitation tables. Existing databases should run this script again to add the staff and invitation tables and indexes; existing ledger tables are left unchanged. The API does not create or migrate tables automatically.
 
 Start the development server:
 
@@ -47,8 +55,20 @@ Health check: `GET /health`.
 | `POST` | `/api/accounts/:accountId/transactions` | Create a credit or debit |
 | `GET` | `/api/accounts/:accountId/transactions` | Read filtered, paginated transaction history |
 | `POST` | `/api/transfers` | Atomically transfer between two accounts |
+| `POST` | `/api/auth/staff/login` | Sign in with staff ID, email, and password |
+| `POST` | `/api/auth/staff/register` | Register staff using an email-bound, one-time invitation key |
+| `POST` | `/api/auth/admin/login` | Sign in as the environment-configured admin |
+| `GET` | `/api/auth/me` | Read the current authenticated user |
+| `POST` | `/api/auth/logout` | Clear the authentication cookie |
+| `GET` | `/api/admin/staff` | List staff (admin only) |
+| `GET` | `/api/admin/invitations` | List staff invitations (admin only; keys are never returned) |
+| `POST` | `/api/admin/invitations` | Create an email-bound staff invitation (admin only) |
+| `DELETE` | `/api/admin/invitations/:id` | Revoke an unused staff invitation (admin only) |
+| `POST` | `/api/admin/staff` | Create staff (admin only) |
+| `PUT` | `/api/admin/staff/:id` | Update staff (admin only) |
+| `DELETE` | `/api/admin/staff/:id` | Delete staff (admin only) |
 
-Request and response examples, validation rules, and status codes are in [`docs/API.md`](./docs/API.md).
+Request and response examples, validation rules, and status codes are in [`docs/API.md`](./docs/API.md). Business and technical assumptions are documented in [`docs/ASSUMPTIONS.md`](./docs/ASSUMPTIONS.md).
 
 ## Postman
 
@@ -64,7 +84,9 @@ Collection runs create account and transaction data. Use a disposable database w
 - The database's per-account unique `(account_id, reference_id)` constraint is the source of truth for duplicate prevention. Transfers write one debit and one credit entry using the same reference on their respective accounts.
 - Transaction writes and balance updates share a database transaction. Account row locks serialize concurrent balance changes; transfers lock accounts in stable ID order.
 - Transaction descriptions are optional and default to an empty string to match the existing table.
-- The API does not expose transaction update or delete operations. Authentication and authorization are outside the current project scope.
+- The API does not expose transaction update or delete operations.
+- Staff passwords are stored as bcrypt hashes. Admin password hashes and the JWT signing secret are backend-only environment variables. Login issues an eight-hour, HTTP-only JWT cookie; production cookies use `Secure` and `SameSite=None`.
+- All ledger API routes require an authenticated admin or staff session. The current schema has no account ownership relation, so authenticated staff operate on the existing shared ledger accounts.
 - History defaults to page `1` and limit `20`; limit is capped at `100`. Results sort newest-first by `created_at`, then `id` for stable ordering.
 
 ## Validation

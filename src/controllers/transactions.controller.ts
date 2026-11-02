@@ -163,12 +163,7 @@ export async function getTransactionHistoryHandler(
   }
 
   try {
-    const history = await getTransactionHistory(
-      accountId,
-      type,
-      page,
-      limit,
-    );
+    const history = await getTransactionHistory(accountId, type, page, limit);
 
     if (!history) {
       res.status(404).json({

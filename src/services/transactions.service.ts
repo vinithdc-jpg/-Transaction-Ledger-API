@@ -12,16 +12,6 @@ export interface CreateTransactionInput {
   description: string;
 }
 
-interface TransactionRow {
-  id: string;
-  account_id: string;
-  type: TransactionType;
-  amount: string;
-  description: string;
-  reference_id: string;
-  created_at: Date;
-}
-
 export interface Transaction {
   id: string;
   accountId: string;
@@ -256,15 +246,25 @@ export async function getTransactionHistory(
   }
 
   return {
-    transactions: transactionsResult.rows.map((transaction: { id: any; account_id: any; type: any; amount: any; description: any; reference_id: any; created_at: { toISOString: () => any; }; }) => ({
-      id: transaction.id,
-      accountId: transaction.account_id,
-      type: transaction.type,
-      amount: transaction.amount,
-      description: transaction.description,
-      referenceId: transaction.reference_id,
-      createdAt: transaction.created_at.toISOString(),
-    })),
+    transactions: transactionsResult.rows.map(
+      (transaction: {
+        id: any;
+        account_id: any;
+        type: any;
+        amount: any;
+        description: any;
+        reference_id: any;
+        created_at: { toISOString: () => any };
+      }) => ({
+        id: transaction.id,
+        accountId: transaction.account_id,
+        type: transaction.type,
+        amount: transaction.amount,
+        description: transaction.description,
+        referenceId: transaction.reference_id,
+        createdAt: transaction.created_at.toISOString(),
+      }),
+    ),
     page,
     limit,
     total,
@@ -291,7 +291,9 @@ export async function transferFunds(
       [input.sourceAccountId, input.destinationAccountId],
     )) as { rows: Array<{ id: string }> };
 
-    const accountIds = new Set(accountsResult.rows.map((account) => account.id));
+    const accountIds = new Set(
+      accountsResult.rows.map((account) => account.id),
+    );
     if (
       !accountIds.has(input.sourceAccountId) ||
       !accountIds.has(input.destinationAccountId)
