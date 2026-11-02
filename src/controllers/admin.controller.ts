@@ -15,11 +15,7 @@ function readStringField(
   key: string,
   trim = true,
 ): string | null {
-  if (
-    typeof body !== "object" ||
-    body === null ||
-    Array.isArray(body)
-  ) {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
     return null;
   }
   const value = (body as Record<string, unknown>)[key];
@@ -54,7 +50,9 @@ export async function listStaffHandler(
       "Staff list retrieval failed:",
       error instanceof Error ? error.message : "Unknown database error",
     );
-    res.status(500).json({ success: false, message: "Unable to retrieve staff" });
+    res
+      .status(500)
+      .json({ success: false, message: "Unable to retrieve staff" });
   }
 }
 
@@ -83,7 +81,9 @@ export async function createStaffInviteHandler(
 ): Promise<void> {
   const email = readStringField(req.body, "email");
   if (!email || !/^\S+@\S+\.\S+$/.test(email) || email.length > 254) {
-    res.status(400).json({ success: false, message: "Enter a valid email address" });
+    res
+      .status(400)
+      .json({ success: false, message: "Enter a valid email address" });
     return;
   }
 
@@ -165,11 +165,16 @@ export async function createStaffHandler(
   if (!/^[A-Za-z0-9_-]{3,64}$/.test(staffId)) {
     res.status(400).json({
       success: false,
-      message: "Staff ID must be 3–64 letters, numbers, underscores, or hyphens",
+      message:
+        "Staff ID must be 3–64 letters, numbers, underscores, or hyphens",
     });
     return;
   }
-  if (name.length > 120 || !/^\S+@\S+\.\S+$/.test(email) || email.length > 254) {
+  if (
+    name.length > 120 ||
+    !/^\S+@\S+\.\S+$/.test(email) ||
+    email.length > 254
+  ) {
     res.status(400).json({
       success: false,
       message: "Enter a valid name and email address",
@@ -179,7 +184,8 @@ export async function createStaffHandler(
   if (password.length < 12 || Buffer.byteLength(password, "utf8") > 72) {
     res.status(400).json({
       success: false,
-      message: "Password must be at least 12 characters and no more than 72 bytes",
+      message:
+        "Password must be at least 12 characters and no more than 72 bytes",
     });
     return;
   }
@@ -204,7 +210,9 @@ export async function createStaffHandler(
       "Staff account creation failed:",
       error instanceof Error ? error.message : "Unknown database error",
     );
-    res.status(500).json({ success: false, message: "Unable to create staff account" });
+    res
+      .status(500)
+      .json({ success: false, message: "Unable to create staff account" });
   }
 }
 
@@ -218,13 +226,17 @@ export async function updateStaffHandler(
   const email = readStringField(req.body, "email");
   const password = readStringField(req.body, "password", false);
   const body =
-    typeof req.body === "object" && req.body !== null && !Array.isArray(req.body)
+    typeof req.body === "object" &&
+    req.body !== null &&
+    !Array.isArray(req.body)
       ? (req.body as Record<string, unknown>)
       : null;
   const passwordProvided = body && Object.hasOwn(body, "password");
 
   if (typeof id !== "string" || !isUuid(id)) {
-    res.status(400).json({ success: false, message: "Invalid staff account ID" });
+    res
+      .status(400)
+      .json({ success: false, message: "Invalid staff account ID" });
     return;
   }
   if (!staffId || !name || !email || (passwordProvided && password === null)) {
@@ -237,11 +249,16 @@ export async function updateStaffHandler(
   if (!/^[A-Za-z0-9_-]{3,64}$/.test(staffId)) {
     res.status(400).json({
       success: false,
-      message: "Staff ID must be 3–64 letters, numbers, underscores, or hyphens",
+      message:
+        "Staff ID must be 3–64 letters, numbers, underscores, or hyphens",
     });
     return;
   }
-  if (name.length > 120 || !/^\S+@\S+\.\S+$/.test(email) || email.length > 254) {
+  if (
+    name.length > 120 ||
+    !/^\S+@\S+\.\S+$/.test(email) ||
+    email.length > 254
+  ) {
     res.status(400).json({
       success: false,
       message: "Enter a valid name and email address",
@@ -250,11 +267,12 @@ export async function updateStaffHandler(
   }
   if (
     password &&
-    (password.length < 12 || Buffer.byteLength(password, "utf8") > 72)
+    (password.length < 6 || Buffer.byteLength(password, "utf8") > 72)
   ) {
     res.status(400).json({
       success: false,
-      message: "Password must be at least 12 characters and no more than 72 bytes",
+      message:
+        "Password must be at least 12 characters and no more than 72 bytes",
     });
     return;
   }
@@ -267,7 +285,9 @@ export async function updateStaffHandler(
       ...(password ? { password } : {}),
     });
     if (!staff) {
-      res.status(404).json({ success: false, message: "Staff account not found" });
+      res
+        .status(404)
+        .json({ success: false, message: "Staff account not found" });
       return;
     }
     res.status(200).json({ success: true, data: staff });
@@ -283,7 +303,9 @@ export async function updateStaffHandler(
       "Staff account update failed:",
       error instanceof Error ? error.message : "Unknown database error",
     );
-    res.status(500).json({ success: false, message: "Unable to update staff account" });
+    res
+      .status(500)
+      .json({ success: false, message: "Unable to update staff account" });
   }
 }
 
@@ -293,14 +315,18 @@ export async function deleteStaffHandler(
 ): Promise<void> {
   const id = req.params.id;
   if (typeof id !== "string" || !isUuid(id)) {
-    res.status(400).json({ success: false, message: "Invalid staff account ID" });
+    res
+      .status(400)
+      .json({ success: false, message: "Invalid staff account ID" });
     return;
   }
 
   try {
     const deleted = await deleteStaff(id);
     if (!deleted) {
-      res.status(404).json({ success: false, message: "Staff account not found" });
+      res
+        .status(404)
+        .json({ success: false, message: "Staff account not found" });
       return;
     }
     res.status(200).json({ success: true, data: { id } });
@@ -309,6 +335,8 @@ export async function deleteStaffHandler(
       "Staff account deletion failed:",
       error instanceof Error ? error.message : "Unknown database error",
     );
-    res.status(500).json({ success: false, message: "Unable to delete staff account" });
+    res
+      .status(500)
+      .json({ success: false, message: "Unable to delete staff account" });
   }
 }

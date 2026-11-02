@@ -12,7 +12,6 @@ import {
   requireAuth,
   requireRequestHeader,
 } from "./middleware/auth.middleware";
-import type { ErrorRequestHandler } from "express";
 import { handleRequestError } from "./config/handleRequestError";
 
 const app = express();

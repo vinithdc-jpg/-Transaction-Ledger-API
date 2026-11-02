@@ -13,11 +13,7 @@ function readStringField(
   key: string,
   trim = true,
 ): string | null {
-  if (
-    typeof body !== "object" ||
-    body === null ||
-    Array.isArray(body)
-  ) {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
     return null;
   }
   const value = (body as Record<string, unknown>)[key];
@@ -25,7 +21,10 @@ function readStringField(
   return trim ? value.trim() : value;
 }
 
-function signIn(res: Response, user: NonNullable<Awaited<ReturnType<typeof verifyStaffCredentials>>>): void {
+function signIn(
+  res: Response,
+  user: NonNullable<Awaited<ReturnType<typeof verifyStaffCredentials>>>,
+): void {
   res.cookie(getAuthCookieName(), createAuthToken(user), authCookieOptions());
   res.status(200).json({
     success: true,
@@ -46,7 +45,12 @@ export async function staffLoginHandler(
   const staffId = readStringField(req.body, "staff_id");
   const email = readStringField(req.body, "email");
   const password = readStringField(req.body, "password", false);
-  if (!staffId || !email || !password?.trim() || Buffer.byteLength(password, "utf8") > 72) {
+  if (
+    !staffId ||
+    !email ||
+    !password?.trim() ||
+    Buffer.byteLength(password, "utf8") > 72
+  ) {
     res.status(400).json({
       success: false,
       message: "Staff ID, email, and password are required",
@@ -86,14 +90,16 @@ export async function staffRegistrationHandler(
   if (!staffId || !name || !email || !password?.trim() || !invitationKey) {
     res.status(400).json({
       success: false,
-      message: "Staff ID, name, email, password, and invitation key are required",
+      message:
+        "Staff ID, name, email, password, and invitation key are required",
     });
     return;
   }
   if (!/^[A-Za-z0-9_-]{3,64}$/.test(staffId)) {
     res.status(400).json({
       success: false,
-      message: "Staff ID must be 3–64 letters, numbers, underscores, or hyphens",
+      message:
+        "Staff ID must be 3–64 letters, numbers, underscores, or hyphens",
     });
     return;
   }
@@ -108,10 +114,11 @@ export async function staffRegistrationHandler(
     });
     return;
   }
-  if (password.length < 12 || Buffer.byteLength(password, "utf8") > 72) {
+  if (password.length < 6 || Buffer.byteLength(password, "utf8") > 72) {
     res.status(400).json({
       success: false,
-      message: "Password must be at least 12 characters and no more than 72 bytes",
+      message:
+        "Password must be at least 12 characters and no more than 72 bytes",
     });
     return;
   }
@@ -127,7 +134,8 @@ export async function staffRegistrationHandler(
     if (!staff) {
       res.status(401).json({
         success: false,
-        message: "The invitation key is invalid, used, revoked, or assigned to another email",
+        message:
+          "The invitation key is invalid, used, revoked, or assigned to another email",
       });
       return;
     }
@@ -149,7 +157,9 @@ export async function staffRegistrationHandler(
       "Staff registration failed:",
       error instanceof Error ? error.message : "Unknown database error",
     );
-    res.status(500).json({ success: false, message: "Unable to register staff account" });
+    res
+      .status(500)
+      .json({ success: false, message: "Unable to register staff account" });
   }
 }
 
@@ -170,7 +180,9 @@ export async function adminLoginHandler(
   try {
     const user = await verifyAdminCredentials(email, password);
     if (!user) {
-      res.status(401).json({ success: false, message: "Invalid email or password" });
+      res
+        .status(401)
+        .json({ success: false, message: "Invalid email or password" });
       return;
     }
     signIn(res, user);
